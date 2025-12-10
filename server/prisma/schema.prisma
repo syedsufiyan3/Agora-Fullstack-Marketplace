@@ -1,14 +1,117 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String?
+  name          String?
+  role          Role     @default(CUSTOMER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  products      Product[]
+  orders        Order[]
+  cartItems     CartItem[]
+  reviews       Review[]
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  price       Decimal       @db.Decimal(10, 2)
+  stock       Int
+  sku         String        @unique
+  status      ProductStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  sellerId    String
+  seller      User          @relation(fields: [sellerId], references: [id])
+  
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  OUT_OF_STOCK
+}
+
+model CartItem {
+  id              String   @id @default(uuid())
+  quantity        Int
+  priceSnapshot   Decimal  @db.Decimal(10, 2)
+  addedAt         DateTime @default(now())
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  
+  @@unique([userId, productId])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  customerId  String
+  customer    User        @relation(fields: [customerId], references: [id])
+  
+  items       OrderItem[]
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  quantity        Int
+  priceAtPurchase Decimal @db.Decimal(10, 2)
+  
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id])
+  
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  @@unique([userId, productId])
 }
