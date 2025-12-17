@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
+  id            String    @id @default(cuid())
+  email         String    @unique
   passwordHash  String?
   name          String?
-  role          Role     @default(CUSTOMER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  role          Role      @default(CUSTOMER)
   
-  products      Product[]
   orders        Order[]
-  cartItems     CartItem[]
   reviews       Review[]
+  products      Product[] 
+  cartItems     CartItem[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 enum Role {
@@ -29,56 +30,76 @@ enum Role {
 }
 
 model Product {
-  id          String        @id @default(uuid())
+  id          String   @id @default(cuid())
   title       String
   description String?
-  price       Decimal       @db.Decimal(10, 2)
-  stock       Int
-  sku         String        @unique
   status      ProductStatus @default(DRAFT)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
   
   sellerId    String
-  seller      User          @relation(fields: [sellerId], references: [id])
+  seller      User     @relation(fields: [sellerId], references: [id])
   
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  
+  variants    ProductVariant[]
+  images      ProductImage[]
   reviews     Review[]
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 enum ProductStatus {
   DRAFT
   ACTIVE
-  OUT_OF_STOCK
+  ARCHIVED
 }
 
-model CartItem {
-  id              String   @id @default(uuid())
-  quantity        Int
-  priceSnapshot   Decimal  @db.Decimal(10, 2)
-  addedAt         DateTime @default(now())
+model ProductVariant {
+  id        String   @id @default(cuid())
+  sku       String   @unique
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  stock     Int
   
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
   
-  @@unique([userId, productId])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  products  Product[]
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  totalAmount Decimal     @db.Decimal(10, 2)
-  status      OrderStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  status          OrderStatus @default(PENDING)
+  razorpayOrderId String?     @unique
+  shippingAddress String
   
-  customerId  String
-  customer    User        @relation(fields: [customerId], references: [id])
+  customerId      String
+  customer        User        @relation(fields: [customerId], references: [id])
   
-  items       OrderItem[]
+  items           OrderItem[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 enum OrderStatus {
@@ -90,28 +111,40 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id              String  @id @default(uuid())
-  quantity        Int
-  priceAtPurchase Decimal @db.Decimal(10, 2)
+  id        String  @id @default(cuid())
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
   
-  orderId         String
-  order           Order   @relation(fields: [orderId], references: [id])
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
   
-  productId       String
-  product         Product @relation(fields: [productId], references: [id])
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  quantity  Int
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([userId, variantId])
 }
 
 model Review {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   rating    Int
   comment   String?
-  createdAt DateTime @default(now())
   
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   
   productId String
   product   Product  @relation(fields: [productId], references: [id])
-  
-  @@unique([userId, productId])
+
+  createdAt DateTime @default(now())
 }
