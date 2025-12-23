@@ -50,3 +50,59 @@ export const register = async (req: Request, res: Response) => {
     })
   }
 }
+
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body
+
+    const user = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      })
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash!)
+
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      })
+    }
+
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email,
+        role: user.role 
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    )
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      }
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login'
+    })
+  }
+}
